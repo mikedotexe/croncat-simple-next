@@ -68,7 +68,6 @@
   justify-content: center;
   flex-wrap: wrap;
   max-width: 800px;
-  margin-top: 3rem;
 }
 
 .card {
@@ -96,12 +95,52 @@
 .card h3 {
   margin: 0 0 1rem 0;
   font-size: 1.5rem;
+  font-weight: lighter;
 }
 
 .card p {
   margin: 0;
   font-size: 1.25rem;
   line-height: 1.5;
+}
+
+.ez {
+  margin: 1.3rem 0 0.3rem 0;
+  flex-basis: 45%;
+  padding: 0.6rem 1.5rem;
+  text-align: left;
+  color: inherit;
+  text-decoration: none;
+  border: 6px dotted white;
+  border-radius: 10px;
+  transition: border-color 0.19s ease;
+  /*background-color: mintcream; !* dark card background *!*/
+  background-color: #075f7a; /* dark card background */
+}
+
+.ez:hover,
+.ez:focus,
+.ez:active {
+  border-color: yellowgreen;
+}
+
+.ez h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: lighter;
+}
+
+.ez p {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  transition: font-size 0.19s ease;
+}
+
+.ez p:hover,
+.ez p:focus,
+.ez p:active {
+  font-size: 1.6rem;
 }
 
 .logo {
