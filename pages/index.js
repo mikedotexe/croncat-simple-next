@@ -110,9 +110,15 @@ export default function Home() {
         const executeFee = calculateFee(Number.parseInt(gasUsed), gas);
         console.log('aloha executeFee', executeFee)
 
-        let hi = await sClient.execute(chainContext.address, 'neutron12g9rc7uet8jqlhhjf72emd56ndk8rctfsmy30llekem4scsgd77sgnkvfa', {'remove_nominate_owner': {}}, executeFee, null, []);
-        console.log('aloha hi', hi)
-        // console.log('aloha sClient', sClient)
+        let hi
+        try {
+            hi = await sClient.execute(chainContext.address, 'neutron12g9rc7uet8jqlhhjf72emd56ndk8rctfsmy30llekem4scsgd77sgnkvfa', {'remove_nominate_owner': {}}, executeFee, null, []);
+            console.log('aloha hi', hi)
+            // console.log('aloha sClient', sClient)
+
+        } catch (e) {
+            console.error('aloha honua e', e)
+        }
     }
 
     console.log('aloha chainContext', chainContext['chain']['apis']['rpc'])
