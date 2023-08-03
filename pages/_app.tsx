@@ -10,6 +10,7 @@ import "@interchain-ui/react/styles";
 import Home from "./index";
 import {config} from "dotenv"
 import {SigningCosmWasmClient} from "@cosmjs/cosmwasm-stargate";
+import {DirectSecp256k1HdWallet} from "@cosmjs/proto-signing";
 config({ path: '.env' })
 
 export default function CosmosApp() {
@@ -33,10 +34,22 @@ function getRandom(arr, num) {
     return shuffled.slice(0, num);
 }
 
+// Get a working SigningCosmWasm client
+export async function getWorkingEndpoint(chainName, wallet, options) {
+    const client = await getWorkingClient(chainName, wallet, options)
+    if (!client) return null
+
+    return client['tmClient']['client']['url']
+}
+
+export async function getMockWallet(prefix) {
+    return await DirectSecp256k1HdWallet.fromMnemonic('cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat blanket', { prefix });
+}
+
 // We pass in the chain name, and set the default RPCs to what our NPM package for
 // chain-registry has. Then we try to get the most updated version from the GitHub Raw URL
 // which is provided in the .env file
-export async function getWorkingEndpoint(chainName, wallet, options) {
+export async function getWorkingClient(chainName, wallet, options) {
     // So maybe here is where we actually call (with like axios) the GitHub raw URL,
     // and feed that into
     console.log('aloha chainName', chainName)
@@ -85,6 +98,4 @@ export async function getWorkingEndpoint(chainName, wallet, options) {
         console.log('aloha error', error);
         return null
     }
-
-    // const client = await SigningCosmWasmClient.connectWithSigner(firstRpcAddress, mockWallet, options);
 }

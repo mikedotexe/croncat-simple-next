@@ -2,7 +2,7 @@ import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 import React, {useEffect, useState} from "react";
 import {Tendermint34Client} from "@cosmjs/tendermint-rpc";
-import {calculateFee, QueryClient} from "@cosmjs/stargate";
+import {calculateFee, coin, QueryClient} from "@cosmjs/stargate";
 import {setupWasmExtension, SigningCosmWasmClient} from "@cosmjs/cosmwasm-stargate";
 import {useChain, useWalletClient} from "@cosmos-kit/react";
 import { chains, assets } from 'chain-registry'
@@ -10,10 +10,11 @@ import { GasPrice } from '@cosmjs/stargate';
 import {MsgExecuteContract} from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import {toBase64, toUtf8} from "@cosmjs/encoding";
 import {DirectSecp256k1HdWallet} from "@cosmjs/proto-signing";
-import {CRONCAT_FACTORY_MAP, getWorkingEndpoint} from './_app'
+import {CRONCAT_FACTORY_MAP, getMockWallet, getWorkingClient, getWorkingEndpoint} from './_app'
 import { CroncatTasksClient } from '../public/CroncatTasks.client'
 import {convertChain} from "@cosmos-kit/core";
 import ContractCreateTask from "./create/contract";
+import {TaskRequest} from "../public/CroncatTasks.types";
 
 export default function Home() {
   console.log('aloha CRONCAT_FACTORY_MAP', CRONCAT_FACTORY_MAP);
@@ -30,11 +31,38 @@ export default function Home() {
   const gasFee = GasPrice.fromString(`${currentChainInfo.fees.fee_tokens[0].average_gas_price}${currentChainInfo.fees.fee_tokens[0].denom}`) // this is quite hilarious, i'm sure
   console.log('aloha gasFee', gasFee)
 
+
   const demoSign = async () => {
     if (!wallet) {
       console.error("Wallet not connected. Please connect to wallet first.");
       return;
     }
+
+    let task: TaskRequest = {
+      actions: [
+        {
+          msg: {
+            wasm: {
+              execute: {
+                contract_addr: 'neutron159uz95zucrfjyl73yfqlzc4p2pk9qul4cmkryecvfg8mgvcvjjgqumhfh4',
+                funds: [],
+                msg: toBase64(Buffer.from('{"toggle":{}}'))
+              }
+            }
+          },
+          gas_limit: 666_000,
+        }
+      ],
+      boundary: null,
+      cw20: null,
+      interval: {
+        block: 3
+      },
+      stop_on_fail: false,
+      queries: null,
+      transforms: null
+    }
+    console.log('aloha task', task)
 
     const signerAddress = chainContext.address
 
@@ -59,7 +87,7 @@ export default function Home() {
 
     // Create a mock wallet, even if it fails simulation, we'll get some idea
     // Then just multiply by some non-scientific number and move forward
-    const mockWallet = await DirectSecp256k1HdWallet.fromMnemonic('cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat cat blanket', { prefix: currentChainInfo.bech32_prefix });
+    const mockWallet = await getMockWallet(currentChainInfo.bech32_prefix);
     let delme2 = await mockWallet.getAccounts();
     const catAccount = delme2[0].address
     console.log('aloha catAccountz', catAccount)
@@ -77,20 +105,23 @@ export default function Home() {
     console.log('aloha rpcAddresses', rpcAddresses)
     let firstRpcAddress = currentChainInfo.apis.rpc.pop().address
     console.log('aloha firstRpcAddress', firstRpcAddress)
-    const mockClient = await getWorkingEndpoint(selectedChainName, mockWallet, options)
-    const realClient = await getWorkingEndpoint(selectedChainName, wallet, options)
+    const mockClient = await getWorkingClient(selectedChainName, mockWallet, options)
+    const realClient = await getWorkingClient(selectedChainName, wallet, options)
     console.log('aloha mockClient', mockClient)
 
     // let catAccounts = await mockClient.getAccounts()
     // let catAccount = catAccounts[0].address
     // console.log('aloha catAccount', catAccount)
-
     const executeContractMsg = {
       typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
       value: MsgExecuteContract.fromPartial({
         sender: catAccount,
-        contract: 'neutron12g9rc7uet8jqlhhjf72emd56ndk8rctfsmy30llekem4scsgd77sgnkvfa',
-        msg: toUtf8(`{"remove_nominate_owner":{}}`),
+        contract: tasksContractAddr,
+        msg: toUtf8(JSON.stringify({
+          create_task: {
+            task
+          }
+        })),
         funds: [],
       }),
     };
@@ -107,19 +138,19 @@ export default function Home() {
 
       // whatever, give it buffer.
       // if anything, everything's too cheap anyway
-      gasUsed = match[1] * 1.666
+      gasUsed = Math.floor(match[1] * 1.666)
     }
     console.log('aloha gasUsed (with arbitrary multiple)', gasUsed)
 
     // let sim = await sClient.simulate(signerAddress, )
-    const executeFee = calculateFee(Number.parseInt(gasUsed), gasFee);
+    const executeFee = calculateFee(gasUsed, gasFee);
     console.log('aloha executeFee', executeFee)
     console.log('aloha tasksContractAddr', tasksContractAddr)
 
     // let createCronCatTaskMessage = new CroncatTasksClient(client, chainContext.address, tasksContractAddr);
     console.log('aloha chainContext.address', chainContext.address)
-    window.realClient = realClient
-    console.log('aloha realClient', realClient)
+    // window.realClient = realClient
+    // console.log('aloha realClient', realClient)
 
     // const delme = realClient.getAccounts()
     // let createCronCatTaskMessage = new CroncatTasksClient(realClient, chainContext.address, tasksContractAddr);
@@ -172,9 +203,11 @@ export default function Home() {
     // createCronCatTaskMessage.createTask
 
     console.log('aloha chainContext.address', chainContext.address)
+    console.log('aloha tasksContractAddr', tasksContractAddr)
     let execRes
     try {
-      execRes = await sClient.execute(chainContext.address, tasksContractAddr, {'remove_nominate_owner': {}}, executeFee, null, []);
+      execRes = await sClient.execute(chainContext.address, tasksContractAddr, {'create_task': { task }}, executeFee, 'Your ad here, lol. but seriously…', [coin(1_000_000, currentChainInfo.fees.fee_tokens[0].denom)]);
+      // execRes = await sClient.execute(chainContext.address, tasksContractAddr, {'create_task': { task }}, executeFee, 'Your ad here, lol. but seriously…', [coin(1_000_000, currentChainInfo.fees.fee_tokens[0].denom)]);
       console.log('aloha execRes', execRes)
       // console.log('aloha sClient', sClient)
 
@@ -217,16 +250,34 @@ export default function Home() {
   // Run at beginning
   useEffect(() => {
     const fetchData = async () => {
-      const tmClient = await Tendermint34Client.connect('https://uni-rpc.reece.sh');
+      const mockWallet = await getMockWallet(currentChainInfo.bech32_prefix);
+      const defaultSigningOptions = {
+        broadcastPollIntervalMs: 300,
+        broadcastTimeoutMs: 8_000,
+        gasPrice: gasFee,
+      };
+
+      const options = { ...defaultSigningOptions, prefix: selectedChainName };
+
+      const endpoint = await getWorkingEndpoint(selectedChainName, mockWallet, options)
+      const tmClient = await Tendermint34Client.connect(endpoint);
       let queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension);
       console.log('queryClient', queryClient);
-      let croncatContracts = await queryClient.wasm.queryContractSmart('juno1mc4wfy9unvy2mwx7dskjqhh6v7qta3vqsxmkayclg4c2jude76es0jcp38', {
-        "latest_contracts":{}
+      console.log('aloha CronCat factories', CRONCAT_FACTORY_MAP);
+      console.log('aloha selectedChainName', selectedChainName);
+
+      const factoryAddr = CRONCAT_FACTORY_MAP[selectedChainName].factory;
+      console.log('aloha factoryAddr', factoryAddr);
+
+      let croncatContracts = await queryClient.wasm.queryContractSmart(factoryAddr, {
+        latest_contract: {
+          contract_name: 'tasks'
+        }
       })
-      console.log('aloha croncatContracts', croncatContracts)
-      const tasksContract = croncatContracts.filter(contract => contract['contract_name'] === "tasks")[0];
-      console.log('aloha tasksContracts', tasksContract)
-      const tasksContractAddr = tasksContract['metadata']['contract_addr']
+      // console.log('aloha croncatContracts', croncatContracts)
+      // const tasksContract = croncatContracts.filter(contract => contract['contract_name'] === "tasks")[0];
+      // console.log('aloha tasksContracts', tasksContract)
+      const tasksContractAddr = croncatContracts['metadata']['contract_addr']
       console.log('aloha tasksContractAddr', tasksContractAddr)
       setTasksContractAddr(tasksContractAddr)
     };
@@ -298,7 +349,7 @@ export default function Home() {
         </div>
 
         <div className={styles.grid}>
-          <a href="/create/simple" className={styles.card}>
+          <a href="/create/simple.ts" className={styles.card}>
             <h3>Simple &rarr;</h3>
             <p>Send another person a small amount attached to a task.</p>
             <hr className={'cartoon'}/>
@@ -306,7 +357,7 @@ export default function Home() {
             <p>❌ If-this-then-that</p>
           </a>
 
-          <a href="/create/contract" className={styles.card}>
+          <a href="/create/contract.ts" className={styles.card}>
             <h3>Call contract &rarr;</h3>
             <p>Call a simple smart contract with a task.</p>
             <hr className={'cartoon'}/>
@@ -315,7 +366,7 @@ export default function Home() {
           </a>
 
           <a
-            href="/create/query"
+            href="/create/query.ts"
             className={styles.card}
           >
             <h3>Query &rarr;</h3>
@@ -327,7 +378,7 @@ export default function Home() {
           </a>
 
           <a
-            href="/create/query-transform"
+            href="/create/query-transform.ts"
             className={styles.card}
           >
             <h3>Query & Transform &rarr;</h3>
